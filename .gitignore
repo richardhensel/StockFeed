@@ -1,0 +1,6 @@
+*.log
+*.csv
+*.json
+*test*
+*Test*
+*.pyc
