@@ -25,18 +25,16 @@ from twilio.rest import Client
 
 def load_company_info(first_time_flag):
 
-    #file_path ='/home/richard/gitRepositories/StockFeed/ASXListedCompanies.csv'  
     file_path ='./ASXListedCompanies.csv'  
     if first_time_flag==True:
         company_dict = {}
         with open(os.path.join(file_path)) as localfile:
                     reader = csv.reader(localfile,delimiter=',',quotechar='"')
-                    #reader.next()
                     code_list = []
                     for row in reader:
                         csv_row = [column.upper() for column in row]
                         code_list.append(csv_row[1])
-                        company_dict[csv_row[1]]=dict([('company_name',csv_row[0]),('industry_group',csv_row[2]),('quote_timestamps',[]),  ('last_prices', []), ('change_percents', []),  ('news_timestamps', []), ('news_headlines', []), ('news_publishers', []), ('news_links', []),  ('ann_timestamps', []), ('ann_headlines', []),  ('ann_links', [])]) 
+                        company_dict[csv_row[1]]=dict([('company_name',csv_row[0]),('industry_group',csv_row[2]),('quote_timestamps',[]),  ('last_prices', []), ('change_percents', []),  ('news_timestamps', []), ('news_headlines', []), ('news_publishers', []), ('news_links', []),  ('ann_timestamps', []), ('ann_headlines', []),  ('ann_links', []),  ('ann_sensitive', [])]) 
         
         with open('company_dict.json', 'w') as fp:
             json.dump(company_dict, fp)
@@ -114,7 +112,8 @@ def seconds_in_day(time_string):
 
 def notify(code):
     print 'notify'
-    code_watch_list =['MAH', 'ANR', 'SAS', 'AVQ', 'FBR', 'IMA', 'FGR'] 
+    #code_watch_list =['TPP', 'MAH', 'ANR', 'SAS', 'AVQ', 'FBR', 'IMA', 'FGR'] 
+    code_watch_list =['IMA'] 
 
     account_sid = os.environ['TWILIO_SID']
     auth_token = os.environ['TWILIO_AUTH']
@@ -126,11 +125,16 @@ def notify(code):
         #company_dict[code]['ann_timestamps'].append(ann_time_utc)
         headline = company_dict[code]['ann_headlines'][-1]
         pdf_link = company_dict[code]['ann_links'][-1]
-
+        
+        #True if price sensitive
+        if company_dict[code]['ann_sensitive'][-1]: 
+            sensitive = 'PRICE SENSITIVE'
+        else:
+            sensitive = ''
         client.messages.create(
              to=os.environ['MY_NUMBER'],
              from_ = os.environ['TWILIO_NUMBER'],
-             body = code+'\n'+headline+'\n'+pdf_link
+             body = code+'\n'+headline+'\n'+sensitive+'\n'+pdf_link
          )
 
 def get_stock_quotes(code_list):
@@ -159,14 +163,15 @@ def get_asx_index_announcements():
     current_date = timezone('Australia/Sydney').localize(datetime(previous.year, previous.month, previous.day))
     current_date_utc = int((current_date - unixZero).total_seconds())
 
-    #driver = webdriver.Firefox()
-    #driver.get(url)
-    #time_delay(1,2)
-    #element = driver.find_element_by_name('priceSensitiveOnly').click()
+    driver = webdriver.Firefox()
+    #driver = webdriver.PhantomJS()
+    driver.get(url)
+    time_delay(1,2)
+    element = driver.find_element_by_name('priceSensitiveOnly').click()
     
-    #soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
-    #driver.close()
-    soup = bs4.BeautifulSoup(urlopen(url), 'html.parser')
+    soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+    driver.close()
+    #soup = bs4.BeautifulSoup(urlopen(url), 'html.parser')
     table = soup.find("table", attrs={"id":"ucf_table"})
     print table
     
@@ -210,25 +215,32 @@ def get_asx_announcements():
     current_date = timezone('Australia/Sydney').localize(datetime(previous.year, previous.month, previous.day))
     current_date_utc = int((current_date - unixZero).total_seconds())
 
-    #driver = webdriver.Firefox()
-    #driver.get(url)
-    #time_delay(1,2)
-    #element = driver.find_element_by_name('priceSensitiveOnly').click()
-   
-     
-    #soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
-    soup = bs4.BeautifulSoup(urlopen(url), 'html.parser')
-    #driver.close()
-    table = soup.find("table", attrs={"id":"ucf_table"})
-    tbody = table.find("body", attrs={"data-quoteapi":"items"})
+## new
+    url ='http://www.asx.com.au/asx/statistics/prevBusDayAnns.do'
+    pdf_url_base ='http://www.asx.com.au'
     
-    for row in table.find_all('tr', {"data-quoteapi-id":re.compile(r".*")}):
-        ann_time = row.find('td', {"data-quoteapi":"$cur.time"}).get_text()
-        code = row.find('a', {"data-quoteapi":"$cur.symbol href=/asx/{$cur.symbol} (stockLink)"}).get_text()
-        title = row.find('td', {"class": "quoteapi-announcement-heading"}).get_text()
-        page_count = row.find('td', {"data-quoteapi":"$cur.pageCount"}).get_text()
-        file_size = row.find('td', {"data-quoteapi":"$cur.fileSize"}).get_text()
-        pdf_link = pdf_link_base+tag[0]+'/'+tag[1]+'/'+title.replace(' ','_')
+    driver = webdriver.PhantomJS()
+    driver.get(url)
+    time_delay(2,2.1)
+    soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
+    driver.close()
+    table = soup.find("table", {"class":re.compile(r".*")})
+    
+    #print table
+    for row in table.find_all('tr', {"class":re.compile(r".*")}):
+        columns = row.find_all('td')
+    
+        ann_time    = columns[1].get_text()
+        code        = columns[0].get_text() 
+        #print code
+        if columns[2].find('img'):
+            print 'sensitive'
+            price_sensitive = True                 
+        else:
+            price_sensitive = False
+        title       = columns[3].get_text()
+        page_count  = columns[4].get_text()
+        pdf_link    = pdf_url_base+(columns[5].find('a', {"href":re.compile(r".*")}).get("href")).lower() 
 
         ann_time_utc = current_date_utc+seconds_in_day(ann_time)
 
@@ -237,10 +249,11 @@ def get_asx_announcements():
                 print 'adding ' + code
                 company_dict[code]['ann_timestamps'].append(ann_time_utc)
                 company_dict[code]['ann_headlines'].append(title)
+                company_dict[code]['ann_sensitive'].append(price_sensitive)
                 company_dict[code]['ann_links'].append(pdf_link)
 
+                
                 notify(code)
-                #break
                  
             #else: 
                 #print code +' '+ title + ' already added'
@@ -309,9 +322,9 @@ while True:
 
         #get the latest asx announcements.
         #from the market index website
-        get_asx_index_announcements()
+        #get_asx_index_announcements()
         #from the asx website
-        #get_asx_announcements()
+        get_asx_announcements()
 
         #get latest news.
         #get_news()

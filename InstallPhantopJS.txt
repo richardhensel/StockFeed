@@ -1,0 +1,5 @@
+
+1. install dependancies
+sudo apt-get install build-essential chrpath libssl-dev libxft-dev libfreetype6-dev libfreetype6 libfontconfig1-dev libfontconfig1 -y
+
+2. move the phantomjs binary to /usr/local/bin
