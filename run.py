@@ -163,15 +163,14 @@ def get_asx_index_announcements():
     current_date = timezone('Australia/Sydney').localize(datetime(previous.year, previous.month, previous.day))
     current_date_utc = int((current_date - unixZero).total_seconds())
 
-    driver = webdriver.Firefox()
-    #driver = webdriver.PhantomJS()
+    #driver = webdriver.Firefox()
+    driver = webdriver.PhantomJS()
     driver.get(url)
     time_delay(1,2)
     element = driver.find_element_by_name('priceSensitiveOnly').click()
     
     soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
     driver.close()
-    #soup = bs4.BeautifulSoup(urlopen(url), 'html.parser')
     table = soup.find("table", attrs={"id":"ucf_table"})
     print table
     
@@ -216,10 +215,11 @@ def get_asx_announcements():
     current_date_utc = int((current_date - unixZero).total_seconds())
 
 ## new
-    url ='http://www.asx.com.au/asx/statistics/prevBusDayAnns.do'
+    #url ='http://www.asx.com.au/asx/statistics/prevBusDayAnns.do'
     pdf_url_base ='http://www.asx.com.au'
     
     driver = webdriver.PhantomJS()
+    #driver = webdriver.Firefox()
     driver.get(url)
     time_delay(2,2.1)
     soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
@@ -234,7 +234,6 @@ def get_asx_announcements():
         code        = columns[0].get_text() 
         #print code
         if columns[2].find('img'):
-            print 'sensitive'
             price_sensitive = True                 
         else:
             price_sensitive = False
@@ -246,13 +245,12 @@ def get_asx_announcements():
 
         try:
             if title not in company_dict[code]['ann_headlines'] and ann_time_utc not in company_dict[code]['ann_timestamps']: 
-                print 'adding ' + code
+                #print 'adding ' + code
                 company_dict[code]['ann_timestamps'].append(ann_time_utc)
                 company_dict[code]['ann_headlines'].append(title)
                 company_dict[code]['ann_sensitive'].append(price_sensitive)
                 company_dict[code]['ann_links'].append(pdf_link)
 
-                
                 notify(code)
                  
             #else: 
@@ -273,8 +271,6 @@ def get_news():
                 #if news less than 2 days old
                 if current_time - news_timestamp < 2*24*3600:
                     try:
-                        print dictionary['t']
-                        print dictionary['d']
                         company_dict[query_code]['news_timestamps'].append(news_timestamp)
                         company_dict[query_code]['news_headlines'].append(dictionary['t'])
                         company_dict[query_code]['news_publishers'].append(dictionary['s'])
@@ -320,9 +316,6 @@ while True:
         #query the google finance api and update the company information
         #get_stock_quotes(query_code_list)
 
-        #get the latest asx announcements.
-        #from the market index website
-        #get_asx_index_announcements()
         #from the asx website
         get_asx_announcements()
 
