@@ -1,8 +1,8 @@
 class AnnouncementReader:
-    def __init__(self):
+    def __init__(self, url):
 
-        #self.url ='http://www.asx.com.au/asx/statistics/prevBusDayAnns.do'
-        self.url ='http://www.asx.com.au/asx/statistics/todayAnns.do'
+        self.url =url
+        self.pdf_url_base ='http://www.asx.com.au'
 
 
 
@@ -13,7 +13,6 @@ class AnnouncementReader:
         current_date = timezone('Australia/Sydney').localize(datetime(previous.year, previous.month, previous.day))
         current_date_utc = int((current_date - unixZero).total_seconds())
 
-        pdf_url_base ='http://www.asx.com.au'
 
         driver = webdriver.PhantomJS()
         driver.get(self.url)
@@ -38,7 +37,7 @@ class AnnouncementReader:
             else:
                 price_sensitive = False
             headline       = columns[3].get_text()
-            pdf_link    = pdf_url_base+(columns[5].find('a', {"href":re.compile(r".*")}).get("href")).lower()
+            pdf_link    = self.pdf_url_base+(columns[5].find('a', {"href":re.compile(r".*")}).get("href")).lower()
             ann_time_utc = current_date_utc+seconds_in_day(ann_time)
 
             codes.append(code)

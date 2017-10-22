@@ -29,12 +29,12 @@ def load_company_info(first_time_flag):
     if first_time_flag==True:
         company_dict = {}
         with open(os.path.join(file_path)) as localfile:
-                    reader = csv.reader(localfile,delimiter=',',quotechar='"')
-                    code_list = []
-                    for row in reader:
-                        csv_row = [column.upper() for column in row]
-                        code_list.append(csv_row[1])
-                        company_dict[csv_row[1]]=dict([('company_name',csv_row[0]),('industry_group',csv_row[2]),('quote_timestamps',[]),  ('last_prices', []), ('change_percents', []),  ('news_timestamps', []), ('news_headlines', []), ('news_publishers', []), ('news_links', []),  ('ann_timestamps', []), ('ann_headlines', []),  ('ann_links', []),  ('ann_sensitive', [])]) 
+            reader = csv.reader(localfile,delimiter=',',quotechar='"')
+            code_list = []
+                for row in reader:
+                    csv_row = [column.upper() for column in row]
+                    code_list.append(csv_row[1])
+                    company_dict[csv_row[1]]=dict([('company_name',csv_row[0]),('industry_group',csv_row[2]),('quote_timestamps',[]),  ('last_prices', []), ('change_percents', []),  ('news_timestamps', []), ('news_headlines', []), ('news_publishers', []), ('news_links', []),  ('ann_timestamps', []), ('ann_headlines', []),  ('ann_links', []),  ('ann_sensitive', [])]) 
         
         with open('company_dict.json', 'w') as fp:
             json.dump(company_dict, fp)
@@ -121,21 +121,42 @@ def notify(code):
     client = Client(account_sid, auth_token)
 
     if code in code_watch_list:
+        
         print 'sending sms about '+code
         #company_dict[code]['ann_timestamps'].append(ann_time_utc)
         headline = company_dict[code]['ann_headlines'][-1]
         pdf_link = company_dict[code]['ann_links'][-1]
-        
-        #True if price sensitive
-        if company_dict[code]['ann_sensitive'][-1]: 
-            sensitive = 'PRICE SENSITIVE'
+        timestamp = company_dict[code]['ann_timestamps'][-1]
+        if not check_already_notified(code, headline, timestamp):
+            print 'notify now'
+            #True if price sensitive
+            if company_dict[code]['ann_sensitive'][-1]: 
+                sensitive = 'PRICE SENSITIVE'
+            else:
+                sensitive = ''
+            client.messages.create(
+                 to=os.environ['MY_NUMBER'],
+                 from_ = os.environ['TWILIO_NUMBER'],
+                 body = code+'\n'+headline+'\n'+sensitive+'\n'+pdf_link
+             )
+            add_to_done_list(code, headline, timestamp) 
         else:
-            sensitive = ''
-        client.messages.create(
-             to=os.environ['MY_NUMBER'],
-             from_ = os.environ['TWILIO_NUMBER'],
-             body = code+'\n'+headline+'\n'+sensitive+'\n'+pdf_link
-         )
+            print 'already notified'
+
+def check_already_notified(code, headline, timestamp):
+    filename = 'notified_list.csv'
+    with open(filename) as csvfile:
+        reader = csv.reader(csvfile, delimiter=',', quotechar='"')
+        for row in reader:
+            if row[0]==code and row[1]==headline and row[2]==timestamp:
+                return True
+    return False
+
+def add_to_done_list(code, headline, timestamp):
+    filename = 'notified_list.csv'
+    fd = open(filename,'a')
+    fd.write(','.join([str(code), str(headline), str(timestamp)])+'\n')
+    fd.close()
 
 def get_stock_quotes(code_list):
     #update the time of the last api query
@@ -163,8 +184,8 @@ def get_asx_index_announcements():
     current_date = timezone('Australia/Sydney').localize(datetime(previous.year, previous.month, previous.day))
     current_date_utc = int((current_date - unixZero).total_seconds())
 
-    #driver = webdriver.Firefox()
-    driver = webdriver.PhantomJS()
+    driver = webdriver.Firefox()
+    #driver = webdriver.PhantomJS()
     driver.get(url)
     time_delay(1,2)
     element = driver.find_element_by_name('priceSensitiveOnly').click()
@@ -207,7 +228,7 @@ def get_asx_index_announcements():
 
 #from asx website
 def get_asx_announcements():
-    url ='http://www.asx.com.au/asx/statistics/todayAnns.do' 
+    #url ='http://www.asx.com.au/asx/statistics/todayAnns.do' 
 
     unixZero = timezone('UTC').localize(datetime(1970,1,1))
     previous = recent_weekday(date.today())
@@ -215,15 +236,16 @@ def get_asx_announcements():
     current_date_utc = int((current_date - unixZero).total_seconds())
 
 ## new
-    #url ='http://www.asx.com.au/asx/statistics/prevBusDayAnns.do'
+    url ='http://www.asx.com.au/asx/statistics/prevBusDayAnns.do'
     pdf_url_base ='http://www.asx.com.au'
     
-    driver = webdriver.PhantomJS()
-    #driver = webdriver.Firefox()
+    #driver = webdriver.PhantomJS()
+    driver = webdriver.Firefox()
     driver.get(url)
-    time_delay(2,2.1)
+    time_delay(4,5)
     soup = bs4.BeautifulSoup(driver.page_source, 'html.parser')
-    driver.close()
+    print soup
+    #driver.close()
     table = soup.find("table", {"class":re.compile(r".*")})
     
     #print table
