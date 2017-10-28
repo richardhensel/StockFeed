@@ -1,3 +1,6 @@
+#!/usr/bin/python
+
+
 import os
 import csv
 import string
@@ -31,10 +34,10 @@ def load_company_info(first_time_flag):
         with open(os.path.join(file_path)) as localfile:
             reader = csv.reader(localfile,delimiter=',',quotechar='"')
             code_list = []
-                for row in reader:
-                    csv_row = [column.upper() for column in row]
-                    code_list.append(csv_row[1])
-                    company_dict[csv_row[1]]=dict([('company_name',csv_row[0]),('industry_group',csv_row[2]),('quote_timestamps',[]),  ('last_prices', []), ('change_percents', []),  ('news_timestamps', []), ('news_headlines', []), ('news_publishers', []), ('news_links', []),  ('ann_timestamps', []), ('ann_headlines', []),  ('ann_links', []),  ('ann_sensitive', [])]) 
+            for row in reader:
+                csv_row = [column.upper() for column in row]
+                code_list.append(csv_row[1])
+                company_dict[csv_row[1]]=dict([('company_name',csv_row[0]),('industry_group',csv_row[2]),('quote_timestamps',[]),  ('last_prices', []), ('change_percents', []),  ('news_timestamps', []), ('news_headlines', []), ('news_publishers', []), ('news_links', []),  ('ann_timestamps', []), ('ann_headlines', []),  ('ann_links', []),  ('ann_sensitive', [])]) 
         
         with open('company_dict.json', 'w') as fp:
             json.dump(company_dict, fp)
